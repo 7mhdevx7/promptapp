@@ -3,6 +3,7 @@ import type { PromptVersion } from "../entities/PromptVersion"
 import type { Tag } from "../entities/Tag"
 
 export interface SearchFilters {
+  userId: string
   q?: string | undefined
   groupId?: string | undefined
   status?: string | undefined

@@ -5,8 +5,9 @@ import type { Prompt } from "@/src/domain/entities/Prompt"
 export class SearchPromptsUseCase {
   constructor(private readonly promptRepo: PromptRepository) {}
 
-  async execute(dto: SearchPromptDTO): Promise<Prompt[]> {
+  async execute(dto: SearchPromptDTO, userId: string): Promise<Prompt[]> {
     return this.promptRepo.searchPrompts({
+      userId,
       q: dto.q,
       groupId: dto.groupId,
       status: dto.status,

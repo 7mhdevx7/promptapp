@@ -10,7 +10,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const tags = await container.tagRepo.getTags()
+  const tags = await container.tagRepo.getTags(session.user.id)
   return NextResponse.json({ tags })
 }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const tag = await container.createTagUseCase.execute(parsed.data)
+    const tag = await container.createTagUseCase.execute(parsed.data, session.user.id)
     return NextResponse.json({ tag }, { status: 201 })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error"

@@ -10,7 +10,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const groups = await container.groupRepo.getGroups()
+  const groups = await container.groupRepo.getGroups(session.user.id)
   return NextResponse.json({ groups })
 }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const group = await container.createGroupUseCase.execute(parsed.data)
+    const group = await container.createGroupUseCase.execute(parsed.data, session.user.id)
     return NextResponse.json({ group }, { status: 201 })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error"

@@ -5,13 +5,13 @@ import type { Tag } from "@/src/domain/entities/Tag"
 export class RedisTagRepository implements TagRepository {
   constructor(private readonly redis: Redis) {}
 
-  async saveTag(tag: Tag): Promise<void> {
+  async saveTag(tag: Tag, userId: string): Promise<void> {
     await this.redis.set(`tag:${tag.id}`, JSON.stringify(tag))
-    await this.redis.lpush("tag:list", tag.id)
+    await this.redis.lpush(`user:${userId}:tag:list`, tag.id)
   }
 
-  async getTags(): Promise<Tag[]> {
-    const ids = await this.redis.lrange("tag:list", 0, -1)
+  async getTags(userId: string): Promise<Tag[]> {
+    const ids = await this.redis.lrange(`user:${userId}:tag:list`, 0, -1)
     if (ids.length === 0) return []
 
     const pipeline = this.redis.pipeline()

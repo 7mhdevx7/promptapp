@@ -12,7 +12,7 @@ export type CreateGroupDTO = z.infer<typeof CreateGroupSchema>
 export class CreateGroupUseCase {
   constructor(private readonly groupRepo: GroupRepository) {}
 
-  async execute(dto: CreateGroupDTO): Promise<PromptGroup> {
+  async execute(dto: CreateGroupDTO, userId: string): Promise<PromptGroup> {
     const group: PromptGroup = {
       id: crypto.randomUUID(),
       name: dto.name.trim(),
@@ -20,7 +20,7 @@ export class CreateGroupUseCase {
       ...(dto.description !== undefined && { description: dto.description }),
     }
 
-    await this.groupRepo.saveGroup(group)
+    await this.groupRepo.saveGroup(group, userId)
 
     return group
   }

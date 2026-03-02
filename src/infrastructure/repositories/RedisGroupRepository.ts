@@ -5,13 +5,13 @@ import type { PromptGroup } from "@/src/domain/entities/PromptGroup"
 export class RedisGroupRepository implements GroupRepository {
   constructor(private readonly redis: Redis) {}
 
-  async saveGroup(group: PromptGroup): Promise<void> {
+  async saveGroup(group: PromptGroup, userId: string): Promise<void> {
     await this.redis.set(`group:${group.id}`, JSON.stringify(group))
-    await this.redis.lpush("group:list", group.id)
+    await this.redis.lpush(`user:${userId}:group:list`, group.id)
   }
 
-  async getGroups(): Promise<PromptGroup[]> {
-    const ids = await this.redis.lrange("group:list", 0, -1)
+  async getGroups(userId: string): Promise<PromptGroup[]> {
+    const ids = await this.redis.lrange(`user:${userId}:group:list`, 0, -1)
     if (ids.length === 0) return []
 
     const pipeline = this.redis.pipeline()

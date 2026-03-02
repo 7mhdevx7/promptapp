@@ -17,7 +17,7 @@ export class RedisPromptRepository implements PromptRepository {
 
   async savePrompt(prompt: Prompt): Promise<void> {
     await this.redis.set(`prompt:${prompt.id}`, JSON.stringify(prompt))
-    await this.redis.lpush("prompt:list", prompt.id)
+    await this.redis.lpush(`user:${prompt.createdBy}:prompt:list`, prompt.id)
   }
 
   async updatePrompt(prompt: Prompt): Promise<void> {
@@ -31,7 +31,7 @@ export class RedisPromptRepository implements PromptRepository {
   }
 
   async searchPrompts(filters: SearchFilters): Promise<Prompt[]> {
-    const ids = await this.redis.lrange("prompt:list", 0, -1)
+    const ids = await this.redis.lrange(`user:${filters.userId}:prompt:list`, 0, -1)
     if (ids.length === 0) return []
 
     const pipeline = this.redis.pipeline()

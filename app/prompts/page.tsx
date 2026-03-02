@@ -26,14 +26,15 @@ export default async function PromptsPage({
     ? (params.status as PromptStatus)
     : undefined
 
+  const userId = session.user.id
   const prompts = await container.searchPromptsUseCase.execute({
     q: params.q,
     groupId: params.groupId,
     status,
-  })
+  }, userId)
 
-  const groups = await container.groupRepo.getGroups()
-  const tags = await container.tagRepo.getTags()
+  const groups = await container.groupRepo.getGroups(userId)
+  const tags = await container.tagRepo.getTags(userId)
 
   return (
     <Box>

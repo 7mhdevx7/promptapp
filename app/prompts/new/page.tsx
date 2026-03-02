@@ -9,8 +9,9 @@ export default async function NewPromptPage() {
   const session = await getServerSession(authOptions)
   if (session === null) redirect("/login")
 
-  const groups = await container.groupRepo.getGroups()
-  const tags = await container.tagRepo.getTags()
+  const userId = session.user.id
+  const groups = await container.groupRepo.getGroups(userId)
+  const tags = await container.tagRepo.getTags(userId)
 
   return (
     <Box>

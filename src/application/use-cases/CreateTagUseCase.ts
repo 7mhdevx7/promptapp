@@ -12,7 +12,7 @@ export type CreateTagDTO = z.infer<typeof CreateTagSchema>
 export class CreateTagUseCase {
   constructor(private readonly tagRepo: TagRepository) {}
 
-  async execute(dto: CreateTagDTO): Promise<Tag> {
+  async execute(dto: CreateTagDTO, userId: string): Promise<Tag> {
     const tag: Tag = {
       id: crypto.randomUUID(),
       name: dto.name.trim(),
@@ -20,7 +20,7 @@ export class CreateTagUseCase {
       ...(dto.tagGroupId !== undefined && { tagGroupId: dto.tagGroupId }),
     }
 
-    await this.tagRepo.saveTag(tag)
+    await this.tagRepo.saveTag(tag, userId)
 
     return tag
   }

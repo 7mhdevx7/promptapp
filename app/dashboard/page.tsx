@@ -15,10 +15,11 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   if (session === null) redirect("/login")
 
+  const userId = session.user.id
   const [prompts, tags, groups] = await Promise.all([
-    container.promptRepo.searchPrompts({}),
-    container.tagRepo.getTags(),
-    container.groupRepo.getGroups(),
+    container.promptRepo.searchPrompts({ userId }),
+    container.tagRepo.getTags(userId),
+    container.groupRepo.getGroups(userId),
   ])
 
   const counts = {

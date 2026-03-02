@@ -21,8 +21,9 @@ export default async function EditPromptPage({ params }: PageProps) {
 
   const { prompt, versions } = result
   const latestVersion = versions[0]
-  const groups = await container.groupRepo.getGroups()
-  const tags = await container.tagRepo.getTags()
+  const userId = session.user.id
+  const groups = await container.groupRepo.getGroups(userId)
+  const tags = await container.tagRepo.getTags(userId)
 
   return (
     <Box>

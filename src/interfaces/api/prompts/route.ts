@@ -22,7 +22,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const prompts = await container.searchPromptsUseCase.execute(parsed.data)
+  const prompts = await container.searchPromptsUseCase.execute(parsed.data, session.user.id)
   return NextResponse.json({ prompts })
 }
 
