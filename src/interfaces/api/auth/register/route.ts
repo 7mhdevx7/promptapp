@@ -13,6 +13,10 @@ const RegisterSchema = z.object({
 const userRepo = new RedisUserRepository(redis)
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  if (process.env.REGISTRATION_ENABLED === "false") {
+    return NextResponse.json({ error: "Registration is currently disabled" }, { status: 403 })
+  }
+
   const body: unknown = await req.json()
   const parsed = RegisterSchema.safeParse(body)
 
