@@ -1,5 +1,5 @@
 import nextConfig from "eslint-config-next"
-import nextConfigTs from "eslint-config-next/typescript"
+import nextConfigTs from "eslint-config-next/typescript.js"
 import prettierPlugin from "eslint-plugin-prettier"
 import eslintConfigPrettier from "eslint-config-prettier"
 
