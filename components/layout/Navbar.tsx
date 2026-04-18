@@ -8,6 +8,7 @@ import { Box, Flex, Button, Text } from "@radix-ui/themes"
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/prompts", label: "Prompts" },
+  { href: "/editor", label: "Editor" },
   { href: "/tags", label: "Tags" },
   { href: "/groups", label: "Groups" },
 ]
