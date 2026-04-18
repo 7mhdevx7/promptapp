@@ -22,9 +22,11 @@ export default async function PromptsPage({
   if (session === null) redirect("/login")
 
   const params = await searchParams
-  const status = ["draft", "active", "archived"].includes(params.status ?? "")
-    ? (params.status as PromptStatus)
-    : undefined
+  const status = params.status === "all"
+    ? undefined
+    : ["draft", "active", "archived"].includes(params.status ?? "active")
+      ? ((params.status ?? "active") as PromptStatus)
+      : "active"
 
   const userId = session.user.id
   const prompts = await container.searchPromptsUseCase.execute({
@@ -53,7 +55,7 @@ export default async function PromptsPage({
           size="2"
           style={{ borderRadius: "9999px" }}
         >
-          <Link href="/prompts">All</Link>
+          <Link href="/prompts?status=all">All</Link>
         </Button>
         {(["draft", "active", "archived"] as PromptStatus[]).map((s) => (
           <Button

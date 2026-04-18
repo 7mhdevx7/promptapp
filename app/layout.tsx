@@ -18,7 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
-        <Theme accentColor="indigo" grayColor="slate" radius="medium" appearance="light">
+        <Theme accentColor="indigo" grayColor="slate" radius="medium" appearance="dark">
           <AuthProvider>
             <Box style={{ minHeight: "100vh", backgroundColor: "var(--gray-2)" }}>
               {session !== null && <Navbar />}

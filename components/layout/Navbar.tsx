@@ -16,7 +16,14 @@ export default function Navbar() {
   const pathname = usePathname()
 
   return (
-    <Box style={{ backgroundColor: "var(--gray-12)", color: "white" }} px="4" py="3">
+    <Box
+      px="4"
+      py="3"
+      style={{
+        backgroundColor: "var(--gray-3)",
+        borderBottom: "1px solid var(--gray-5)",
+      }}
+    >
       <Flex align="center" justify="between">
         <Flex align="center" gap="6">
           <Link
@@ -24,7 +31,7 @@ export default function Navbar() {
             style={{
               fontWeight: "bold",
               fontSize: "1.125rem",
-              color: "white",
+              color: "var(--gray-12)",
               textDecoration: "none",
               letterSpacing: "-0.015em",
             }}
@@ -43,8 +50,8 @@ export default function Navbar() {
                     fontSize: "0.875rem",
                     padding: "4px 12px",
                     borderRadius: "var(--radius-2)",
-                    color: isActive ? "white" : "var(--gray-8)",
-                    backgroundColor: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+                    color: isActive ? "var(--gray-12)" : "var(--gray-11)",
+                    backgroundColor: isActive ? "var(--gray-5)" : "transparent",
                     textDecoration: "none",
                     transition: "color 0.15s, background-color 0.15s",
                   }}
@@ -60,7 +67,7 @@ export default function Navbar() {
           color="gray"
           size="2"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          style={{ color: "var(--gray-8)", cursor: "pointer" }}
+          style={{ color: "var(--gray-11)", cursor: "pointer" }}
         >
           <Text size="2">Sign out</Text>
         </Button>
