@@ -1,15 +1,15 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { EditorTabs } from "./EditorTabs"
 import { MonacoWrapper } from "./MonacoWrapper"
 import { SaveIndicator } from "./SaveIndicator"
 import { DocumentSearch } from "./DocumentSearch"
 import { MarkdownPreview } from "./MarkdownPreview"
 import { MarkdownFullView } from "./MarkdownFullView"
-import { FileTree } from "./FileTree"
 import { DocumentTitleBar } from "./DocumentTitleBar"
 import { CommandPalette, type PaletteCommand } from "./CommandPalette"
+import Link from "next/link"
 import { useEditorState } from "@/hooks/editor/useEditorState"
 
 export function EditorLayout() {
@@ -28,6 +28,7 @@ export function EditorLayout() {
     setActiveTabId,
     openDocument,
     closeTab,
+    closeAndDelete,
     newDocument,
     setContent,
     renameDocument,
@@ -37,6 +38,10 @@ export function EditorLayout() {
     setShowMarkdownPreview,
     setShowMarkdownFullView,
   } = useEditorState()
+
+  const [fontSize, setFontSize] = useState(14)
+  const increaseFontSize = useCallback(() => setFontSize((s) => s + 2), [])
+  const decreaseFontSize = useCallback(() => setFontSize((s) => Math.max(8, s - 2)), [])
 
   const handleContentChange = useCallback(
     (value: string) => {
@@ -109,11 +114,21 @@ export function EditorLayout() {
     <div className="flex flex-col h-screen bg-[#1e1e1e] text-[#cccccc] overflow-hidden">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 h-8 bg-[#323233] border-b border-[#3c3c3c] shrink-0">
-        <DocumentTitleBar
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/prompts"
+            className="text-xs text-[#858585] hover:text-[#cccccc] shrink-0"
+            title="Back to app"
+          >
+            ←
+          </Link>
+          <DocumentTitleBar
           doc={activeDoc}
           onRename={renameDocument}
           onDownload={downloadDocument}
+          onDelete={() => { if (activeTabId) void closeAndDelete(activeTabId) }}
         />
+        </div>
         <div className="flex items-center gap-3">
           <SaveIndicator status={saveStatus} />
           {isMarkdown && (
@@ -138,6 +153,23 @@ export function EditorLayout() {
               </button>
             </>
           )}
+          <div className="flex items-center gap-1 border border-[#3c3c3c] rounded px-1">
+            <button
+              onClick={decreaseFontSize}
+              className="text-xs text-[#858585] hover:text-[#cccccc] px-0.5"
+              title="Decrease font size"
+            >
+              A-
+            </button>
+            <span className="text-[10px] text-[#858585] min-w-[2ch] text-center">{fontSize}</span>
+            <button
+              onClick={increaseFontSize}
+              className="text-xs text-[#858585] hover:text-[#cccccc] px-0.5"
+              title="Increase font size"
+            >
+              A+
+            </button>
+          </div>
           <button
             onClick={() => setShowPalette(true)}
             className="text-xs text-[#858585] hover:text-[#cccccc]"
@@ -159,13 +191,6 @@ export function EditorLayout() {
 
       {/* Main area: sidebar + editor */}
       <div className="flex flex-1 min-h-0">
-        <FileTree
-          metas={metas}
-          activeTabId={activeTabId}
-          onOpen={openDocument}
-          onNew={newDocument}
-        />
-
         {activeTabId ? (
           <>
             <div className={`flex-1 min-w-0 overflow-hidden ${showMarkdownPreview && isMarkdown ? "w-1/2" : ""}`}>
@@ -173,6 +198,7 @@ export function EditorLayout() {
                 key={activeTabId}
                 value={activeContent}
                 extension={activeDoc?.extension ?? "txt"}
+                fontSize={fontSize}
                 onChange={handleContentChange}
                 onSave={() => {}}
               />

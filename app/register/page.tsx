@@ -15,6 +15,8 @@ import {
 } from "@radix-ui/themes"
 
 export default function RegisterPage() {
+  // TODO: temporarily disable registration
+  return null;
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

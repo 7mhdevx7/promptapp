@@ -50,9 +50,10 @@ interface FileTreeNodeProps {
   activeTabId: string | null
   depth: number
   onOpen: (id: string) => void
+  onDelete: (id: string) => void
 }
 
-function FileTreeNode({ node, activeTabId, depth, onOpen }: FileTreeNodeProps) {
+function FileTreeNode({ node, activeTabId, depth, onOpen, onDelete }: FileTreeNodeProps) {
   const [open, setOpen] = useState(true)
   const indent = depth * 12
 
@@ -74,6 +75,7 @@ function FileTreeNode({ node, activeTabId, depth, onOpen }: FileTreeNodeProps) {
             activeTabId={activeTabId}
             depth={depth + 1}
             onOpen={onOpen}
+            onDelete={onDelete}
           />
         ))}
       </div>
@@ -82,18 +84,34 @@ function FileTreeNode({ node, activeTabId, depth, onOpen }: FileTreeNodeProps) {
 
   const isActive = node.doc?.id === activeTabId
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!node.doc) return
+    if (window.confirm(`Delete "${node.name}"?`)) {
+      onDelete(node.doc.id)
+    }
+  }
+
   return (
-    <button
-      onClick={() => node.doc && onOpen(node.doc.id)}
+    <div
       style={{ paddingLeft: indent + 8 }}
-      className={`w-full flex items-center gap-1.5 py-1 text-xs text-left truncate
+      className={`group w-full flex items-center gap-1.5 pr-1 py-1 text-xs cursor-pointer
         ${isActive ? "bg-[#094771] text-white" : "text-[#cccccc] hover:bg-[#2a2d2e]"}`}
+      onClick={() => node.doc && onOpen(node.doc.id)}
     >
       <span className="text-[#858585] font-mono shrink-0">
         {node.doc?.extension ?? ""}
       </span>
-      <span className="truncate">{node.name}</span>
-    </button>
+      <span className="truncate flex-1">{node.name}</span>
+      <button
+        onClick={handleDelete}
+        className="shrink-0 opacity-0 group-hover:opacity-100 text-[#858585] hover:text-[#f14c4c] leading-none px-0.5"
+        title="Delete document"
+        aria-label="Delete document"
+      >
+        ×
+      </button>
+    </div>
   )
 }
 
@@ -102,9 +120,10 @@ interface FileTreeProps {
   activeTabId: string | null
   onOpen: (id: string) => void
   onNew: () => void
+  onDelete: (id: string) => void
 }
 
-export function FileTree({ metas, activeTabId, onOpen, onNew }: FileTreeProps) {
+export function FileTree({ metas, activeTabId, onOpen, onNew, onDelete }: FileTreeProps) {
   const tree = useMemo(() => buildTree(metas), [metas])
 
   return (
@@ -134,6 +153,7 @@ export function FileTree({ metas, activeTabId, onOpen, onNew }: FileTreeProps) {
               activeTabId={activeTabId}
               depth={0}
               onOpen={onOpen}
+              onDelete={onDelete}
             />
           ))
         )}

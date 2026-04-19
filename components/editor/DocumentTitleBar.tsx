@@ -7,6 +7,7 @@ interface DocumentTitleBarProps {
   doc: DocumentMeta | null
   onRename: (name: string, extension: string) => void
   onDownload: () => void
+  onDelete: () => void
 }
 
 function parseFilename(raw: string): { name: string; extension: string } {
@@ -15,7 +16,7 @@ function parseFilename(raw: string): { name: string; extension: string } {
   return { name: raw.slice(0, lastDot), extension: raw.slice(lastDot + 1) }
 }
 
-export function DocumentTitleBar({ doc, onRename, onDownload }: DocumentTitleBarProps) {
+export function DocumentTitleBar({ doc, onRename, onDownload, onDelete }: DocumentTitleBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -76,6 +77,16 @@ export function DocumentTitleBar({ doc, onRename, onDownload }: DocumentTitleBar
         aria-label="Download file"
       >
         ↓
+      </button>
+      <button
+        onClick={() => {
+          if (window.confirm(`Delete "${fullName}"?`)) onDelete()
+        }}
+        className="text-xs text-[#858585] hover:text-[#f14c4c] shrink-0"
+        title={`Delete ${fullName}`}
+        aria-label="Delete file"
+      >
+        🗑
       </button>
     </div>
   )

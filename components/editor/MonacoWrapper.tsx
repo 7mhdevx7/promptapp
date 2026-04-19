@@ -35,11 +35,12 @@ const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
 interface MonacoWrapperProps {
   value: string
   extension: string
+  fontSize?: number
   onChange: (value: string) => void
   onSave: () => void
 }
 
-export function MonacoWrapper({ value, extension, onChange, onSave }: MonacoWrapperProps) {
+export function MonacoWrapper({ value, extension, fontSize = 14, onChange, onSave }: MonacoWrapperProps) {
   const language = EXTENSION_LANGUAGE_MAP[extension] ?? "plaintext"
 
   const handleEditorMount: EditorProps["onMount"] = (editor, monaco) => {
@@ -58,7 +59,7 @@ export function MonacoWrapper({ value, extension, onChange, onSave }: MonacoWrap
       onChange={(val) => onChange(val ?? "")}
       onMount={handleEditorMount}
       options={{
-        fontSize: 14,
+        fontSize,
         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
