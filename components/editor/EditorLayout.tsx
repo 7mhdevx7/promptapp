@@ -168,7 +168,7 @@ export function EditorLayout() {
 
         {activeTabId ? (
           <>
-            <div className={`flex-1 min-w-0 ${showMarkdownPreview && isMarkdown ? "w-1/2" : ""}`}>
+            <div className={`flex-1 min-w-0 overflow-hidden ${showMarkdownPreview && isMarkdown ? "w-1/2" : ""}`}>
               <MonacoWrapper
                 key={activeTabId}
                 value={activeContent}

@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Monaco editor: scrollbar overlay style — no resemblance to browser scrollbar */
+.monaco-editor .scrollbar {
+  background: transparent !important;
+}
+.monaco-editor .scrollbar > .slider {
+  background: rgba(110, 110, 110, 0.35) !important;
+  border-radius: 4px !important;
+  transition: background 0.15s;
+}
+.monaco-editor .scrollbar > .slider:hover {
+  background: rgba(140, 140, 140, 0.6) !important;
+}
