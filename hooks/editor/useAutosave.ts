@@ -79,7 +79,7 @@ export function useAutosave({
   }, [docId, content, debounceMs, save])
 
   const saveNow = useCallback(() => {
-    if (!docId) return
+    if (!docId || content === lastSavedRef.current) return
     if (timerRef.current) clearTimeout(timerRef.current)
     void save(docId, content)
   }, [docId, content, save])

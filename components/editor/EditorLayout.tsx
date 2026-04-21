@@ -26,6 +26,7 @@ export function EditorLayout() {
     showMarkdownFullView,
     sessionLoaded,
     setActiveTabId,
+    switchToTab,
     openDocument,
     closeTab,
     closeAndDelete,
@@ -184,7 +185,7 @@ export function EditorLayout() {
       <EditorTabs
         tabs={openTabs}
         activeTabId={activeTabId}
-        onSelect={setActiveTabId}
+        onSelect={switchToTab}
         onClose={closeTab}
         onNew={newDocument}
       />

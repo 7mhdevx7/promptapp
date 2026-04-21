@@ -191,7 +191,7 @@ export function useEditorState() {
   }, [activeDoc, activeContent])
 
   // --- Autosave ---
-  useAutosave({
+  const { saveNow } = useAutosave({
     docId: activeTabId,
     content: activeContent,
     name: activeDoc?.name ?? "Untitled",
@@ -199,6 +199,12 @@ export function useEditorState() {
     onStatusChange: setSaveStatus,
     onMetaUpdate: handleMetaUpdate,
   })
+
+  // Flush pending save before switching tabs so unsaved changes aren't lost
+  const switchToTab = useCallback((docId: string) => {
+    saveNow()
+    setActiveTabId(docId)
+  }, [saveNow])
 
   // --- Polling sync ---
   useEffect(() => {
@@ -259,6 +265,7 @@ export function useEditorState() {
     showMarkdownFullView,
     sessionLoaded,
     setActiveTabId,
+    switchToTab,
     openDocument,
     closeTab,
     closeAndDelete,
