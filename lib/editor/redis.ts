@@ -42,6 +42,7 @@ export async function createDocument(
     extension,
     updatedAt: Date.now(),
     userId,
+    version: 1,
   }
 
   await Promise.all([
@@ -53,21 +54,38 @@ export async function createDocument(
   return { id, content: "", meta }
 }
 
+type UpdateResult =
+  | { ok: true; meta: DocumentMeta }
+  | { ok: false; conflict: true; document: Document }
+  | null
+
 export async function updateDocument(
   docId: string,
   userId: string,
   content: string,
   name?: string,
-  extension?: string
-): Promise<DocumentMeta | null> {
+  extension?: string,
+  clientVersion?: number
+): Promise<UpdateResult> {
   const meta = await redis.get<DocumentMeta>(DOCUMENT_META_KEY(docId))
   if (!meta || meta.userId !== userId) return null
+
+  const serverVersion = meta.version ?? 0
+  if (clientVersion !== undefined && clientVersion !== serverVersion) {
+    const currentContent = (await redis.get<string>(DOCUMENT_CONTENT_KEY(docId))) ?? ""
+    return {
+      ok: false,
+      conflict: true,
+      document: { id: docId, content: currentContent, meta: { ...meta, version: serverVersion } },
+    }
+  }
 
   const updated: DocumentMeta = {
     ...meta,
     name: name ?? meta.name,
     extension: extension ?? meta.extension,
     updatedAt: Date.now(),
+    version: serverVersion + 1,
   }
 
   await Promise.all([
@@ -75,7 +93,7 @@ export async function updateDocument(
     redis.set(DOCUMENT_CONTENT_KEY(docId), content),
   ])
 
-  return updated
+  return { ok: true, meta: updated }
 }
 
 export async function deleteDocument(docId: string, userId: string): Promise<boolean> {

@@ -26,12 +26,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { docId } = await params
   const body = await req.json()
-  const { content, name, extension } = body
+  const { content, name, extension, clientVersion } = body
 
-  const meta = await updateDocument(docId, session.user.id, content ?? "", name, extension)
-  if (!meta) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const result = await updateDocument(
+    docId, session.user.id, content ?? "", name, extension,
+    clientVersion !== undefined ? Number(clientVersion) : undefined
+  )
+  if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!result.ok) return NextResponse.json(result.document, { status: 409 })
 
-  return NextResponse.json(meta)
+  return NextResponse.json(result.meta)
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {

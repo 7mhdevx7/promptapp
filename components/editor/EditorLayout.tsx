@@ -9,6 +9,7 @@ import { MarkdownPreview } from "./MarkdownPreview"
 import { MarkdownFullView } from "./MarkdownFullView"
 import { DocumentTitleBar } from "./DocumentTitleBar"
 import { CommandPalette, type PaletteCommand } from "./CommandPalette"
+import { ConflictDialog } from "./ConflictDialog"
 import Link from "next/link"
 import { useEditorState } from "@/hooks/editor/useEditorState"
 
@@ -20,6 +21,7 @@ export function EditorLayout() {
     activeDoc,
     activeContent,
     saveStatus,
+    conflictState,
     showSearch,
     showPalette,
     showMarkdownPreview,
@@ -34,6 +36,7 @@ export function EditorLayout() {
     setContent,
     renameDocument,
     downloadDocument,
+    resolveConflict,
     setShowSearch,
     setShowPalette,
     setShowMarkdownPreview,
@@ -251,6 +254,9 @@ export function EditorLayout() {
           filename={`${activeDoc.name}.${activeDoc.extension}`}
           onClose={() => setShowMarkdownFullView(false)}
         />
+      )}
+      {conflictState && (
+        <ConflictDialog conflict={conflictState} onResolve={resolveConflict} />
       )}
     </div>
   )

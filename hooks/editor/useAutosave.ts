@@ -1,20 +1,20 @@
 "use client"
 
 import { useEffect, useRef, useCallback } from "react"
-import type { SaveStatus, DocumentMeta } from "@/lib/editor/types"
+import type { SaveStatus, DocumentMeta, Document } from "@/lib/editor/types"
 
 interface UseAutosaveParams {
   docId: string | null
   content: string
   name: string
   extension: string
+  version: number
   debounceMs?: number
   onStatusChange: (status: SaveStatus) => void
   onMetaUpdate: (meta: DocumentMeta) => void
+  onConflict: (remoteDoc: Document) => void
 }
 
-// Keeps a stable ref to the latest callback — avoids recreating `save` on every render
-// when parent passes inline functions (advanced-use-latest)
 function useLatest<T>(value: T) {
   const ref = useRef(value)
   ref.current = value
@@ -26,20 +26,27 @@ export function useAutosave({
   content,
   name,
   extension,
+  version,
   debounceMs = 800,
   onStatusChange,
   onMetaUpdate,
+  onConflict,
 }: UseAutosaveParams) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedRef = useRef<string>("")
 
-  // Stable refs — save() never needs to be recreated due to callback identity changes
   const onStatusChangeRef = useLatest(onStatusChange)
   const onMetaUpdateRef = useLatest(onMetaUpdate)
+  const onConflictRef = useLatest(onConflict)
   const nameRef = useLatest(name)
   const extensionRef = useLatest(extension)
+  const versionRef = useLatest(version)
 
-  const save = useCallback(async (docIdToSave: string, contentToSave: string) => {
+  const save = useCallback(async (
+    docIdToSave: string,
+    contentToSave: string,
+    overrideVersion?: number
+  ) => {
     onStatusChangeRef.current("saving")
     try {
       const res = await fetch(`/api/editor/documents/${docIdToSave}`, {
@@ -49,8 +56,15 @@ export function useAutosave({
           content: contentToSave,
           name: nameRef.current,
           extension: extensionRef.current,
+          clientVersion: overrideVersion ?? versionRef.current,
         }),
       })
+      if (res.status === 409) {
+        const remoteDoc: Document = await res.json()
+        onStatusChangeRef.current("error")
+        onConflictRef.current(remoteDoc)
+        return
+      }
       if (res.ok) {
         const meta: DocumentMeta = await res.json()
         lastSavedRef.current = contentToSave
@@ -84,10 +98,23 @@ export function useAutosave({
     void save(docId, content)
   }, [docId, content, save])
 
-  // Reset lastSaved when switching documents so the new doc content triggers a save comparison
+  // Force-save with a specific version — used when resolving a conflict as 'keep mine'
+  const saveWithVersion = useCallback((docIdToSave: string, contentToSave: string, ver: number) => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    void save(docIdToSave, contentToSave, ver)
+  }, [save])
+
+  // Mark content as already saved — used when resolving conflict as 'load remote'
+  // so autosave doesn't immediately re-save the incoming remote content
+  const resetLastSaved = useCallback((c: string) => {
+    lastSavedRef.current = c
+  }, [])
+
+  const getLastSaved = useCallback(() => lastSavedRef.current, [])
+
   useEffect(() => {
     lastSavedRef.current = ""
   }, [docId])
 
-  return { saveNow }
+  return { saveNow, saveWithVersion, resetLastSaved, getLastSaved }
 }

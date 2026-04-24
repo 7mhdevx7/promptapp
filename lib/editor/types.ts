@@ -4,6 +4,7 @@ export interface DocumentMeta {
   extension: string
   updatedAt: number // unix ms
   userId: string
+  version: number
 }
 
 export interface Document {

@@ -7,6 +7,12 @@ import { useAutosave } from "./useAutosave"
 
 const SYNC_INTERVAL_MS = 5000
 
+export interface ConflictState {
+  docId: string
+  localContent: string
+  remoteDoc: Document
+}
+
 export function useEditorState() {
   const { metas, fetchMetas, fetchDocument, createDocument, deleteDocument, updateMeta } =
     useDocuments()
@@ -14,7 +20,9 @@ export function useEditorState() {
   const [openTabs, setOpenTabs] = useState<DocumentMeta[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [contentMap, setContentMap] = useState<Record<string, string>>({})
+  const [versionMap, setVersionMap] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const [conflictState, setConflictState] = useState<ConflictState | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false)
@@ -23,24 +31,15 @@ export function useEditorState() {
 
   const activeDoc = openTabs.find((t) => t.id === activeTabId) ?? null
   const activeContent = activeTabId ? (contentMap[activeTabId] ?? "") : ""
+  const activeVersion = activeTabId ? (versionMap[activeTabId] ?? 0) : 0
 
-  // Tracks the last updatedAt we've seen per document.
-  // Initialized when a doc is loaded and updated after every save.
-  // Prevents the sync poll from overwriting local edits that haven't been
-  // saved yet — without this, the first poll always passes (updatedAt > 0)
-  // and stomps on content typed before autosave fires.
+  // Stable ref to latest contentMap for use inside polling interval
+  const contentMapRef = useRef(contentMap)
+  useEffect(() => { contentMapRef.current = contentMap }, [contentMap])
+
   const lastSeenUpdatedAt = useRef<Record<string, number>>({})
-
-  // Bug 1: skip persisting session right after init restore — a failed fetchDocument
-  // during init would otherwise permanently overwrite the saved session with fewer tabs.
   const skipNextPersist = useRef(false)
-
-  // Bug 2: cancel the previous in-flight persist so an older request can't
-  // overwrite a newer one (race condition when multiple persists fire rapidly).
   const persistAbortRef = useRef<AbortController | null>(null)
-
-  // Bug 3: skip persist when only tab meta changed (name/updatedAt) but IDs didn't —
-  // handleMetaUpdate calls setOpenTabs on every autosave, causing unnecessary races.
   const lastPersistedStateRef = useRef<string>("")
 
   // --- Session persistence ---
@@ -82,19 +81,18 @@ export function useEditorState() {
       const validDocs = docs.filter((d): d is Document => d !== null)
       const validTabs = validDocs.map((d) => d.meta)
       const newContent: Record<string, string> = {}
+      const newVersions: Record<string, number> = {}
 
       for (const d of validDocs) {
         newContent[d.id] = d.content
-        // Seed ref so the first poll doesn't see this as a "new" remote update
+        newVersions[d.id] = d.meta.version ?? 0
         lastSeenUpdatedAt.current[d.id] = d.meta.updatedAt
       }
 
-      // Bug 1: mark so the persist effect skips the first fire after restore.
-      // Without this, a failed fetchDocument above shrinks openTabs and the
-      // effect permanently overwrites Redis with fewer tabs.
       skipNextPersist.current = true
       setOpenTabs(validTabs)
       setContentMap(newContent)
+      setVersionMap(newVersions)
       setActiveTabId(
         session.activeTabId && validDocs.some((d) => d.id === session.activeTabId)
           ? session.activeTabId
@@ -109,13 +107,11 @@ export function useEditorState() {
   useEffect(() => {
     if (!sessionLoaded) return
 
-    // Bug 1: skip the first fire after session restore
     if (skipNextPersist.current) {
       skipNextPersist.current = false
       return
     }
 
-    // Bug 3: skip if only tab meta changed — IDs and activeTab are what matter
     const stateKey = openTabs.map((t) => t.id).join(",") + "|" + (activeTabId ?? "")
     if (stateKey === lastPersistedStateRef.current) return
     lastPersistedStateRef.current = stateKey
@@ -136,8 +132,8 @@ export function useEditorState() {
       }
       const doc = await fetchDocument(docId)
       if (!doc) return
-      // Seed ref before the polling effect picks this up
       lastSeenUpdatedAt.current[docId] = doc.meta.updatedAt
+      setVersionMap((prev) => ({ ...prev, [docId]: doc.meta.version ?? 0 }))
       setOpenTabs((prev) => [...prev, doc.meta])
       setContentMap((prev) => ({ ...prev, [docId]: doc.content }))
       setActiveTabId(docId)
@@ -169,6 +165,7 @@ export function useEditorState() {
     const doc = await createDocument("Untitled", "txt")
     if (!doc) return
     lastSeenUpdatedAt.current[doc.id] = doc.meta.updatedAt
+    setVersionMap((prev) => ({ ...prev, [doc.id]: doc.meta.version ?? 0 }))
     setOpenTabs((prev) => [...prev, doc.meta])
     setContentMap((prev) => ({ ...prev, [doc.id]: "" }))
     setActiveTabId(doc.id)
@@ -190,9 +187,8 @@ export function useEditorState() {
     (meta: DocumentMeta) => {
       updateMeta(meta)
       setOpenTabs((prev) => prev.map((t) => (t.id === meta.id ? meta : t)))
-      // After a save completes, advance the pointer so the next poll
-      // doesn't treat our own save as an incoming remote update
       lastSeenUpdatedAt.current[meta.id] = meta.updatedAt
+      setVersionMap((prev) => ({ ...prev, [meta.id]: meta.version ?? 0 }))
     },
     [updateMeta]
   )
@@ -204,14 +200,19 @@ export function useEditorState() {
       const res = await fetch(`/api/editor/documents/${activeTabId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: activeContent, name, extension }),
+        body: JSON.stringify({
+          content: activeContent,
+          name,
+          extension,
+          clientVersion: activeVersion,
+        }),
       })
       if (res.ok) {
         const meta: DocumentMeta = await res.json()
         handleMetaUpdate(meta)
       }
     },
-    [activeTabId, activeContent, handleMetaUpdate]
+    [activeTabId, activeContent, activeVersion, handleMetaUpdate]
   )
 
   // --- Download active document ---
@@ -226,17 +227,46 @@ export function useEditorState() {
     URL.revokeObjectURL(url)
   }, [activeDoc, activeContent])
 
+  // --- Conflict handling ---
+
+  const handleConflict = useCallback((remoteDoc: Document) => {
+    if (!activeTabId) return
+    const localContent = contentMapRef.current[activeTabId] ?? ""
+    setConflictState({ docId: activeTabId, localContent, remoteDoc })
+  }, [activeTabId])
+
   // --- Autosave ---
-  const { saveNow } = useAutosave({
+  const { saveNow, saveWithVersion, resetLastSaved, getLastSaved } = useAutosave({
     docId: activeTabId,
     content: activeContent,
     name: activeDoc?.name ?? "Untitled",
     extension: activeDoc?.extension ?? "txt",
+    version: activeVersion,
     onStatusChange: setSaveStatus,
     onMetaUpdate: handleMetaUpdate,
+    onConflict: handleConflict,
   })
 
-  // Flush pending save before switching tabs so unsaved changes aren't lost
+  const resolveConflict = useCallback((choice: "local" | "remote") => {
+    if (!conflictState) return
+    const { docId, localContent, remoteDoc } = conflictState
+
+    if (choice === "remote") {
+      setContentMap((prev) => ({ ...prev, [docId]: remoteDoc.content }))
+      setVersionMap((prev) => ({ ...prev, [docId]: remoteDoc.meta.version ?? 0 }))
+      lastSeenUpdatedAt.current[docId] = remoteDoc.meta.updatedAt
+      handleMetaUpdate(remoteDoc.meta)
+      // Tell autosave this is the current saved state so it doesn't re-save remote content
+      resetLastSaved(remoteDoc.content)
+    } else {
+      // 'local': overwrite remote using remote's current version as clientVersion
+      saveWithVersion(docId, localContent, remoteDoc.meta.version ?? 0)
+    }
+
+    setConflictState(null)
+  }, [conflictState, handleMetaUpdate, resetLastSaved, saveWithVersion])
+
+  // Flush pending save before switching tabs
   const switchToTab = useCallback((docId: string) => {
     saveNow()
     setActiveTabId(docId)
@@ -252,9 +282,20 @@ export function useEditorState() {
       const doc: Document = await res.json()
 
       const lastSeen = lastSeenUpdatedAt.current[activeTabId] ?? 0
-      if (doc.meta.updatedAt <= lastSeen) return // nothing new from remote
+      if (doc.meta.updatedAt <= lastSeen) return
 
-      // Only a genuinely newer remote version reaches here
+      // Remote is newer — check if we have unsaved local changes
+      const lastSaved = getLastSaved()
+      const currentContent = contentMapRef.current[activeTabId] ?? ""
+      const isDirty = lastSaved !== "" && currentContent !== lastSaved
+
+      if (isDirty && doc.content !== currentContent) {
+        // Both sides changed — let user decide
+        setConflictState({ docId: activeTabId, localContent: currentContent, remoteDoc: doc })
+        return
+      }
+
+      // Safe to apply remote
       lastSeenUpdatedAt.current[activeTabId] = doc.meta.updatedAt
       setContentMap((cur) => {
         if (cur[activeTabId] === doc.content) return cur
@@ -264,7 +305,7 @@ export function useEditorState() {
     }, SYNC_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [activeTabId, handleMetaUpdate])
+  }, [activeTabId, handleMetaUpdate, getLastSaved])
 
   // --- Keyboard shortcuts ---
   useEffect(() => {
@@ -295,6 +336,7 @@ export function useEditorState() {
     activeDoc,
     activeContent,
     saveStatus,
+    conflictState,
     showSearch,
     showPalette,
     showMarkdownPreview,
@@ -309,6 +351,7 @@ export function useEditorState() {
     setContent,
     renameDocument,
     downloadDocument,
+    resolveConflict,
     setShowSearch,
     setShowPalette,
     setShowMarkdownPreview,
