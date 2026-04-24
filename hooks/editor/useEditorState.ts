@@ -31,14 +31,34 @@ export function useEditorState() {
   // and stomps on content typed before autosave fires.
   const lastSeenUpdatedAt = useRef<Record<string, number>>({})
 
+  // Bug 1: skip persisting session right after init restore — a failed fetchDocument
+  // during init would otherwise permanently overwrite the saved session with fewer tabs.
+  const skipNextPersist = useRef(false)
+
+  // Bug 2: cancel the previous in-flight persist so an older request can't
+  // overwrite a newer one (race condition when multiple persists fire rapidly).
+  const persistAbortRef = useRef<AbortController | null>(null)
+
+  // Bug 3: skip persist when only tab meta changed (name/updatedAt) but IDs didn't —
+  // handleMetaUpdate calls setOpenTabs on every autosave, causing unnecessary races.
+  const lastPersistedStateRef = useRef<string>("")
+
   // --- Session persistence ---
 
   const persistSession = useCallback(async (session: EditorSession) => {
-    await fetch("/api/editor/session", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(session),
-    })
+    persistAbortRef.current?.abort()
+    const controller = new AbortController()
+    persistAbortRef.current = controller
+    try {
+      await fetch("/api/editor/session", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(session),
+        signal: controller.signal,
+      })
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return
+    }
   }, [])
 
   // Load session + documents on mount
@@ -69,6 +89,10 @@ export function useEditorState() {
         lastSeenUpdatedAt.current[d.id] = d.meta.updatedAt
       }
 
+      // Bug 1: mark so the persist effect skips the first fire after restore.
+      // Without this, a failed fetchDocument above shrinks openTabs and the
+      // effect permanently overwrites Redis with fewer tabs.
+      skipNextPersist.current = true
       setOpenTabs(validTabs)
       setContentMap(newContent)
       setActiveTabId(
@@ -84,6 +108,18 @@ export function useEditorState() {
   // Persist session whenever tabs change
   useEffect(() => {
     if (!sessionLoaded) return
+
+    // Bug 1: skip the first fire after session restore
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false
+      return
+    }
+
+    // Bug 3: skip if only tab meta changed — IDs and activeTab are what matter
+    const stateKey = openTabs.map((t) => t.id).join(",") + "|" + (activeTabId ?? "")
+    if (stateKey === lastPersistedStateRef.current) return
+    lastPersistedStateRef.current = stateKey
+
     void persistSession({
       openTabIds: openTabs.map((t) => t.id),
       activeTabId,
